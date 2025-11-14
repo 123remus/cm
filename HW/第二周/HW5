@@ -1,0 +1,203 @@
+# finite_field.py
+# GF(p) implementation (p must be prime)
+# Provides: FiniteFieldElement, FiniteField, FiniteFieldAddGroup, FiniteFieldMulGroup
+
+from math import gcd
+
+class FiniteFieldElement:
+    def __init__(self, value: int, p: int):
+        if p <= 1:
+            raise ValueError("p must be a prime > 1")
+        self.p = p
+        self.value = value % p
+
+    def __repr__(self):
+        return f"{self.value} (mod {self.p})"
+
+    def __str__(self):
+        return repr(self)
+
+    def __int__(self):
+        return self.value
+
+    def __eq__(self, other):
+        return isinstance(other, FiniteFieldElement) and self.p == other.p and self.value == other.value
+
+    def _check_same_field(self, other):
+        if not isinstance(other, FiniteFieldElement) or self.p != other.p:
+            raise TypeError("Operands must be in the same finite field GF(p)")
+
+    # Addition and subtraction
+    def __add__(self, other):
+        self._check_same_field(other)
+        return FiniteFieldElement(self.value + other.value, self.p)
+
+    def __radd__(self, other):
+        # allow sum() with 0
+        if other == 0:
+            return self
+        return self.__add__(other)
+
+    def __neg__(self):
+        return FiniteFieldElement(-self.value, self.p)
+
+    def __sub__(self, other):
+        self._check_same_field(other)
+        return FiniteFieldElement(self.value - other.value, self.p)
+
+    # Multiplication
+    def __mul__(self, other):
+        self._check_same_field(other)
+        return FiniteFieldElement(self.value * other.value, self.p)
+
+    def __rmul__(self, other):
+        # support int * element
+        if isinstance(other, int):
+            return FiniteFieldElement(other * self.value, self.p)
+        return self.__mul__(other)
+
+    # True division
+    def __truediv__(self, other):
+        self._check_same_field(other)
+        inv = other.multiplicative_inverse()
+        return self * inv
+
+    # Multiplicative inverse (raises on zero)
+    def multiplicative_inverse(self):
+        if self.value == 0:
+            raise ZeroDivisionError("0 has no multiplicative inverse in a field")
+        # use extended Euclidean algorithm to find inverse modulo p
+        g, x, y = FiniteFieldElement._extended_gcd(self.value, self.p)
+        if g != 1:
+            # shouldn't happen in GF(p) if p is prime and value != 0
+            raise ValueError("No modular inverse exists")
+        return FiniteFieldElement(x % self.p, self.p)
+
+    @staticmethod
+    def _extended_gcd(a, b):
+        if b == 0:
+            return (a, 1, 0)
+        else:
+            g, x1, y1 = FiniteFieldElement._extended_gcd(b, a % b)
+            x = y1
+            y = x1 - (a // b) * y1
+            return (g, x, y)
+
+    # convenience for powers
+    def __pow__(self, exponent: int):
+        e = exponent % (self.p - 1)  # by Fermat's little theorem for exponents
+        val = pow(self.value, e, self.p)
+        return FiniteFieldElement(val, self.p)
+
+
+class FiniteField:
+    """Represents GF(p) for prime p."""
+    def __init__(self, p: int):
+        if p <= 1 or not self._is_prime(p):
+            raise ValueError("p must be a prime integer > 1 to build GF(p)")
+        self.p = p
+
+    def element(self, value: int):
+        return FiniteFieldElement(value, self.p)
+
+    def elements(self):
+        """Return all elements as FiniteFieldElement objects (0..p-1)."""
+        return [FiniteFieldElement(i, self.p) for i in range(self.p)]
+
+    @staticmethod
+    def _is_prime(n: int) -> bool:
+        if n <= 1:
+            return False
+        if n <= 3:
+            return True
+        if n % 2 == 0:
+            return False
+        i = 3
+        while i * i <= n:
+            if n % i == 0:
+                return False
+            i += 2
+        return True
+
+
+# Group wrapper classes for compatibility with group_axioms.py style checkers.
+# Typical interface expected by group testing utilities:
+# - .elements() -> iterable of group elements
+# - .op(a, b) -> group operation result
+# - .identity() -> identity element
+# - .inv(a) -> inverse of a
+
+class FiniteFieldAddGroup:
+    """Additive group of GF(p)"""
+    def __init__(self, field: FiniteField):
+        self.field = field
+
+    def elements(self):
+        return self.field.elements()
+
+    def op(self, a: FiniteFieldElement, b: FiniteFieldElement):
+        return a + b
+
+    def identity(self):
+        return self.field.element(0)
+
+    def inv(self, a: FiniteFieldElement):
+        return FiniteFieldElement(-a.value, self.field.p)
+
+    def __repr__(self):
+        return f"AddGroup(GF({self.field.p}))"
+
+
+class FiniteFieldMulGroup:
+    """Multiplicative group of GF(p) excluding 0"""
+    def __init__(self, field: FiniteField):
+        self.field = field
+
+    def elements(self):
+        return [FiniteFieldElement(i, self.field.p) for i in range(1, self.field.p)]
+
+    def op(self, a: FiniteFieldElement, b: FiniteFieldElement):
+        return a * b
+
+    def identity(self):
+        return self.field.element(1)
+
+    def inv(self, a: FiniteFieldElement):
+        if a.value == 0:
+            raise ZeroDivisionError("0 not in multiplicative group")
+        return a.multiplicative_inverse()
+
+    def __repr__(self):
+        return f"MulGroup(GF({self.field.p})^*)"
+
+
+# Example usage / demo
+if __name__ == "__main__":
+    # 建立 GF(7)
+    F7 = FiniteField(7)
+    a = F7.element(3)
+    b = F7.element(5)
+
+    print("a =", a)
+    print("b =", b)
+    print("a + b =", a + b)       # 3 + 5 = 8 ≡ 1 (mod 7)
+    print("a - b =", a - b)       # 3 - 5 = -2 ≡ 5 (mod 7)
+    print("a * b =", a * b)       # 3 * 5 = 15 ≡ 1 (mod 7)
+    print("a / b =", a / b)       # 3 * (5^-1 mod 7) = 3 * 3 = 9 ≡ 2 (mod 7)
+    print("b^-1 =", b.multiplicative_inverse())
+
+    # 裝入群測試包裝器 (給 group_axioms.py 用)
+    add_group = FiniteFieldAddGroup(F7)
+    mul_group = FiniteFieldMulGroup(F7)
+
+    print(add_group)
+    print(mul_group)
+
+    # 如果你的 group_axioms.py 的測試函式叫做 check_group,
+    # 你可以像下面這樣呼叫（實際函式名稱請依你的 repo 調整）：
+    #
+    # from group_axioms import check_group
+    # print("add group OK?", check_group(add_group))
+    # print("mul group OK?", check_group(mul_group))
+    #
+    # 若你有 field_axioms.check_distributivity(field), 也可以傳入這個 field/或元素對照進行檢查。
