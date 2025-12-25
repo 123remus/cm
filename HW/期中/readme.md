@@ -1,3 +1,6 @@
+這個程式我是用[AI](https://gemini.google.com/share/441e38acdd77)
+
+
 
 ---
 
