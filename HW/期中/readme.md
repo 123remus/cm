@@ -3,7 +3,7 @@
 
 
 ---
-##mid1
+## mid1
 
 ## 核心主題：中央極限定理 (Central Limit Theorem, CLT)
 
