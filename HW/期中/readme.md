@@ -1,4 +1,4 @@
-## 這個程式我是用## 這個程式我是用[AI](https://gemini.google.com/share/441)
+## 這個程式我是用## 這個程式我是用[AI](https://g.co/gemini/share/eb6140e0d0bf)
 
 
 
