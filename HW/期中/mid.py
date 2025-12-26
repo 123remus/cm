@@ -11,7 +11,7 @@ def simulate_clt(population_type='uniform', sample_size=30, num_samples=10000):
     
     # 1. 產生原始總體數據 (非正態分佈)
     if population_type == 'uniform':
-        data = np.random.uniform(0, 1, 100000)
+        data = np.random.uniform(1, 10, 100000)
         title_prefix = "Uniform"
     else:
         data = np.random.exponential(scale=1.0, size=100000)
